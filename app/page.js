@@ -1,853 +1,612 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs'
 import {
-  Sparkles, Search, MapPin, Heart, Share2, Compass, MessageCircleHeart,
-  Send, X, ChevronRight, Loader2, TrendingUp, Bookmark, Sun, CloudSun,
-  Wallet, Users, Wifi, Footprints, ShieldCheck, Leaf, Coffee, Plane,
-  Music, ArrowRight, Globe, ChevronDown, Heart as HeartFilled, Eye, Play,
-  CheckCircle2, Circle, Star
+  Compass, Sparkles, ArrowRight, Check, Heart, Wallet, Globe, MessageCircleHeart,
+  Wifi, Footprints, ShieldCheck, Users, Leaf, Play, Star, ChevronDown, Menu, X,
+  TrendingUp, MapPin, Zap, Trophy, Brain, Search, Plane, Bookmark, Music
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Progress } from '@/components/ui/progress'
+import {
+  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
+} from '@/components/ui/accordion'
 
-const PLACEHOLDERS = [
-  'a calm beach town for remote work…',
-  'a luxury city with nightlife and rooftop bars…',
-  'a quiet family area near forests and trails…',
-  'a digital nomad community with great cafés…',
-  'find cities similar to Bali but cheaper…',
-  'an artsy neighborhood for creators and entrepreneurs…',
-  'somewhere snowy with a cozy chalet vibe…',
-  'a sun-drenched mediterranean town for slow living…',
+const PROPERTIES = [
+  { img: 'https://images.unsplash.com/photo-1633149668746-2891c0ff7334?auto=format&fit=crop&w=900&q=80', city: 'Tulum', country: 'Mexico', vibe: 'Beach + Wellness', price: 2400, match: 98 },
+  { img: 'https://images.unsplash.com/photo-1607570799395-b968ad047e3f?auto=format&fit=crop&w=900&q=80', city: 'New York', country: 'USA', vibe: 'Luxury + Nightlife', price: 6800, match: 95 },
+  { img: 'https://images.unsplash.com/photo-1774803681248-dc3cac13f018?auto=format&fit=crop&w=900&q=80', city: 'Kyoto', country: 'Japan', vibe: 'Zen + Minimal', price: 1900, match: 94 },
+  { img: 'https://images.unsplash.com/photo-1531819177115-428566ccfb50?auto=format&fit=crop&w=900&q=80', city: 'Lisbon', country: 'Portugal', vibe: 'Nomad + Sun', price: 1700, match: 96 },
+  { img: 'https://images.unsplash.com/photo-1510798831971-661eb04b3739?auto=format&fit=crop&w=900&q=80', city: 'Bansko', country: 'Bulgaria', vibe: 'Mountain Hideout', price: 950, match: 91 },
+  { img: 'https://images.unsplash.com/photo-1633250307378-5604b26a164b?auto=format&fit=crop&w=900&q=80', city: 'Dubai', country: 'UAE', vibe: 'Skyline Luxury', price: 5200, match: 93 },
 ]
 
-const QUICK_PROMPTS = [
-  { icon: '🌊', label: 'Beach + remote work', q: 'A calm beach town for remote work with great wifi, fresh coffee, and a strong community of creatives.' },
-  { icon: '🌆', label: 'Luxury nightlife', q: 'A luxury cosmopolitan city with rooftop bars, Michelin restaurants and electric nightlife.' },
-  { icon: '🌲', label: 'Nature + family', q: 'A quiet family-friendly area surrounded by nature, hiking trails, top schools and safe streets.' },
-  { icon: '💻', label: 'Digital nomad hub', q: 'A digital nomad hotspot with coworking, fast wifi, affordable rent, and an international community.' },
-  { icon: '🏝️', label: 'Like Bali', q: 'Find me cities that feel like Bali — tropical, spiritual, affordable and full of wellness culture.' },
-  { icon: '🎨', label: 'Creators + founders', q: 'The best neighborhoods for creators and entrepreneurs — energy, talent, design culture and good coffee.' },
+const TESTIMONIALS = [
+  { name: 'Maya Chen', role: 'Product designer · moved to Lisbon', img: 'https://i.pravatar.cc/120?img=47', quote: 'I just typed "creative city near the ocean with great coffee" and MoveMatch surfaced Lisbon, Porto, and Barcelona — with vibe scores I didn\'t know I needed. I moved 3 months later.' },
+  { name: 'David Okafor', role: 'Founder · remote-first startup', img: 'https://i.pravatar.cc/120?img=12', quote: 'The Day-in-the-Life previews are unreal. It\'s like a cinematic Airbnb listing written for who I am, not just where I am.' },
+  { name: 'Sara Lindqvist', role: 'Content creator · digital nomad', img: 'https://i.pravatar.cc/120?img=32', quote: 'I\'ve used 6 relocation tools. None come close. MoveMatch is the first that feels intelligent — like a friend who lived in 40 cities.' },
+  { name: 'Ravi Mehta', role: 'Engineer · relocated to Tokyo', img: 'https://i.pravatar.cc/120?img=68', quote: 'The budget planner + AI concierge convinced my partner. We compared Tokyo vs Singapore in 5 minutes. Genuinely magical.' },
 ]
 
-const TRENDING = [
-  { city: 'Lisbon', country: 'Portugal', growth: '+38%', img: 'https://images.unsplash.com/photo-1513735492246-483525079686?auto=format&fit=crop&w=900&q=80', tag: 'Digital Nomad' },
-  { city: 'Tulum', country: 'Mexico', growth: '+52%', img: 'https://images.unsplash.com/photo-1633149668746-2891c0ff7334?auto=format&fit=crop&w=900&q=80', tag: 'Beach + Wellness' },
-  { city: 'Bansko', country: 'Bulgaria', growth: '+41%', img: 'https://images.unsplash.com/photo-1510798831971-661eb04b3739?auto=format&fit=crop&w=900&q=80', tag: 'Mountain Nomad' },
-  { city: 'Medellín', country: 'Colombia', growth: '+29%', img: 'https://images.unsplash.com/photo-1531819177115-428566ccfb50?auto=format&fit=crop&w=900&q=80', tag: 'Spring City' },
+const FEATURES = [
+  { Icon: Brain, title: 'GPT-5 lifestyle matching', desc: 'Describe how you want to live in plain English. Our AI ranks 10k+ neighborhoods by compatibility, not filters.', color: 'from-fuchsia-500 to-pink-500' },
+  { Icon: Play, title: '"Day in the Life" previews', desc: 'See cinematic morning-to-evening previews for any neighborhood — written by AI tailored to you.', color: 'from-cyan-400 to-blue-500' },
+  { Icon: MessageCircleHeart, title: 'Floating AI concierge', desc: 'Multi-turn chat. Compare cities, estimate costs, ask "where would I be happiest" — instantly.', color: 'from-violet-500 to-indigo-500' },
+  { Icon: Wallet, title: 'Smart budget planner', desc: 'Lifestyle tier hints from backpacker to luxury. Auto-fit cities to your monthly budget.', color: 'from-emerald-400 to-teal-500' },
+  { Icon: Bookmark, title: 'Save & sync everywhere', desc: 'Build your dream destinations list. Syncs across devices once you sign in.', color: 'from-amber-400 to-orange-500' },
+  { Icon: Plane, title: 'Relocation roadmap', desc: 'AI-generated checklist tailored to your destination — visas, banking, healthcare, community.', color: 'from-rose-400 to-red-500' },
 ]
 
-const CHECKLIST = [
-  'Apply for long-stay visa',
-  'Open international bank account',
-  'Lock in 3-month coworking pass',
-  'Secure short-term rental',
-  'Set up local SIM + eSIM',
-  'Health insurance for new region',
-  'Schedule arrival airport transfer',
-  'Join expat / nomad Slack',
+const STEPS = [
+  { n: '01', title: 'Describe your dream', desc: 'A sentence or a paragraph. Mood, climate, vibe, work setup — anything.' },
+  { n: '02', title: 'AI ranks the world', desc: 'GPT-5 scores 10k+ neighborhoods on 7 lifestyle dimensions in seconds.' },
+  { n: '03', title: 'Preview & relocate', desc: 'Cinematic previews, cost estimates, AI concierge, relocation checklist.' },
 ]
 
-const SCORE_META = [
-  { key: 'vibe',          label: 'Vibe',        Icon: Sparkles,   color: 'from-fuchsia-400 to-pink-500' },
-  { key: 'safety',        label: 'Safety',      Icon: ShieldCheck, color: 'from-emerald-400 to-teal-500' },
-  { key: 'walkability',   label: 'Walkability', Icon: Footprints,  color: 'from-sky-400 to-cyan-500' },
-  { key: 'social',        label: 'Social',      Icon: Users,       color: 'from-amber-400 to-orange-500' },
-  { key: 'remoteWork',    label: 'Remote work', Icon: Wifi,        color: 'from-indigo-400 to-violet-500' },
-  { key: 'wellness',      label: 'Wellness',    Icon: Leaf,        color: 'from-lime-400 to-green-500' },
-  { key: 'costFriendly',  label: 'Cost',        Icon: Wallet,      color: 'from-rose-400 to-red-500' },
+const FAQ = [
+  { q: 'How is this different from Zillow or Airbnb?', a: 'Zillow searches by filters (price, beds, square ft). MoveMatch searches by lifestyle compatibility. You describe how you want to live and our AI matches you to neighborhoods — even ones you\'ve never heard of.' },
+  { q: 'What AI powers MoveMatch?', a: 'OpenAI\'s GPT-5 (latest generation) powers the lifestyle matching, day-in-the-life previews, and concierge chat. We use reasoning models tuned for travel and lifestyle.' },
+  { q: 'Is it free?', a: 'Yes — the Free plan gives you AI matching, day-in-the-life previews and saved destinations. Pro unlocks unlimited matches, budget tools and the AI concierge.' },
+  { q: 'Do you list actual properties for sale or rent?', a: 'For now, MoveMatch focuses on lifestyle + neighborhood discovery. Property listings via partners are rolling out in 2026.' },
+  { q: 'Where is my data stored?', a: 'Your saved destinations sync to a private account secured by Clerk auth. We never sell your data.' },
+  { q: 'Can I cancel anytime?', a: 'Yes. Pro is month-to-month, cancel anytime, no questions asked.' },
 ]
 
-// fake-map pin positions
-const MAP_PINS = [
-  { left: '18%', top: '38%' }, { left: '28%', top: '55%' }, { left: '42%', top: '32%' },
-  { left: '52%', top: '48%' }, { left: '64%', top: '38%' }, { left: '74%', top: '58%' },
-  { left: '83%', top: '42%' },
-]
+const LOGOS = ['Forbes', 'TechCrunch', 'The Verge', 'Wired', 'Fast Company', 'Bloomberg']
 
-function MetricBar({ value = 0, color = 'from-fuchsia-400 to-cyan-400' }) {
+function MobileMenu({ open, setOpen }) {
+  if (!open) return null
   return (
-    <div className="w-full h-1.5 rounded-full bg-white/5 overflow-hidden">
-      <div
-        className={`h-full rounded-full bg-gradient-to-r ${color} transition-all duration-1000`}
-        style={{ width: `${Math.max(4, Math.min(100, value))}%` }}
-      />
-    </div>
-  )
-}
-
-function PropertyCard({ n, idx, saved, onSave, onPreview, onShare }) {
-  return (
-    <div className="group relative gradient-border overflow-hidden rounded-2xl fade-up"
-         style={{ animationDelay: `${idx * 90}ms` }}>
-      <div className="relative h-56 overflow-hidden rounded-t-2xl">
-        <img
-          src={n.image}
-          alt={n.name}
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-          loading="lazy"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
-        <div className="absolute top-3 left-3 right-3 flex items-start justify-between">
-          <div className="glass rounded-full px-3 py-1.5 text-xs font-medium flex items-center gap-1.5">
-            <span className="text-[15px] leading-none">{n.emoji || '✨'}</span>
-            <span className="text-white/90">{n.vibe}</span>
-          </div>
-          <button
-            onClick={() => onSave(n)}
-            className="glass rounded-full p-2 hover:bg-white/15 transition"
-            aria-label="Save"
-          >
-            <Heart className={`w-4 h-4 ${saved ? 'fill-rose-400 text-rose-400' : 'text-white'}`} />
-          </button>
-        </div>
-        <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
-          <div>
-            <p className="text-xs text-white/70 uppercase tracking-wider flex items-center gap-1">
-              <MapPin className="w-3 h-3" /> {n.city}, {n.country}
-            </p>
-            <h3 className="text-xl font-semibold text-white mt-0.5">{n.name}</h3>
-          </div>
-          <div className="text-right">
-            <div className="text-[10px] uppercase tracking-widest text-white/60">Match</div>
-            <div className="text-2xl font-bold gradient-text">{n.matchPercent}%</div>
-          </div>
-        </div>
+    <div className="fixed inset-0 z-50 md:hidden bg-zinc-950/95 backdrop-blur-2xl">
+      <div className="p-6 flex items-center justify-between">
+        <Link href="/" onClick={() => setOpen(false)} className="flex items-center gap-2.5">
+          <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-fuchsia-500 to-cyan-500 flex items-center justify-center">
+            <Compass className="w-5 h-5 text-white" />
+          </span>
+          <span className="text-lg font-bold">MoveMatch <span className="gradient-text">AI</span></span>
+        </Link>
+        <button onClick={() => setOpen(false)} className="p-2">
+          <X className="w-5 h-5" />
+        </button>
       </div>
-
-      <div className="p-5 space-y-4">
-        <p className="text-sm text-white/70 leading-relaxed line-clamp-3">{n.summary}</p>
-
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-          {SCORE_META.slice(0, 6).map(({ key, label, Icon, color }) => (
-            <div key={key} className="space-y-1">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-white/60 flex items-center gap-1"><Icon className="w-3 h-3" />{label}</span>
-                <span className="text-white/90 font-medium">{n.scores?.[key] ?? 70}</span>
-              </div>
-              <MetricBar value={n.scores?.[key] ?? 70} color={color} />
-            </div>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap gap-1.5">
-          {(n.tags || []).slice(0, 4).map((t) => (
-            <span key={t} className="text-[10px] px-2 py-1 rounded-full bg-white/5 border border-white/10 text-white/70">
-              {t}
-            </span>
-          ))}
-        </div>
-
-        <div className="flex items-center justify-between pt-1">
-          <div>
-            <div className="text-[10px] uppercase tracking-widest text-white/50">Est. monthly</div>
-            <div className="text-lg font-semibold text-white">${n.monthlyCost?.toLocaleString?.() || '—'}</div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onShare(n)}
-              className="glass rounded-full p-2 hover:bg-white/10"
-              aria-label="Share"
-            >
-              <Share2 className="w-4 h-4" />
-            </button>
-            <Button
-              size="sm"
-              onClick={() => onPreview(n)}
-              className="bg-white text-black hover:bg-white/90 rounded-full font-medium"
-            >
-              <Play className="w-3.5 h-3.5 mr-1.5 fill-black" />
-              Day in life
-            </Button>
-          </div>
-        </div>
-
-        {n.weatherMood && (
-          <div className="flex items-center gap-2 text-[11px] text-white/50 pt-1 border-t border-white/5">
-            <CloudSun className="w-3.5 h-3.5" /> {n.weatherMood}
-            {n.hiddenGem && <span className="ml-auto text-[10px] italic text-fuchsia-300/80">💎 {n.hiddenGem.slice(0, 50)}…</span>}
-          </div>
-        )}
+      <nav className="p-6 space-y-1">
+        {[
+          ['Features', '#features'], ['How it works', '#how'], ['Properties', '#properties'],
+          ['Testimonials', '#testimonials'], ['Pricing', '#pricing'], ['FAQ', '#faq'],
+        ].map(([t, h]) => (
+          <a key={t} href={h} onClick={() => setOpen(false)} className="block py-3 text-lg text-white/80 hover:text-white">{t}</a>
+        ))}
+      </nav>
+      <div className="p-6 space-y-3">
+        <SignedOut>
+          <SignInButton mode="modal">
+            <Button variant="outline" className="w-full border-white/15 bg-white/5">Sign in</Button>
+          </SignInButton>
+          <SignUpButton mode="modal">
+            <Button className="w-full bg-gradient-to-br from-fuchsia-500 to-cyan-500">Get started free</Button>
+          </SignUpButton>
+        </SignedOut>
+        <SignedIn>
+          <Link href="/discover"><Button className="w-full bg-gradient-to-br from-fuchsia-500 to-cyan-500">Open app</Button></Link>
+        </SignedIn>
       </div>
     </div>
   )
 }
 
-function FloatingChat({ open, setOpen }) {
-  const [messages, setMessages] = useState([
-    { role: 'assistant', content: "Hi! I'm your MoveMatch concierge. Ask me anything — comparing cities, costs, vibe checks, or where to relocate. ✨" },
-  ])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const scrollRef = useRef(null)
-  const sessionId = useMemo(() => Math.random().toString(36).slice(2), [])
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 99999, behavior: 'smooth' })
-  }, [messages, loading])
-
-  async function send(e) {
-    e?.preventDefault?.()
-    const text = input.trim()
-    if (!text || loading) return
-    const history = messages.filter(m => m.role !== 'system').map(m => ({ role: m.role, content: m.content }))
-    setMessages(prev => [...prev, { role: 'user', content: text }])
-    setInput('')
-    setLoading(true)
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ history, message: text, sessionId }),
-      })
-      const data = await res.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply || data.error || 'Hmm, something went wrong.' }])
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Network hiccup — try again?' }])
-    } finally {
-      setLoading(false)
-    }
-  }
-
+function HeroVisual() {
+  // Stacked floating card composition for hero
   return (
-    <>
-      <button
-        onClick={() => setOpen(!open)}
-        className="fixed bottom-6 right-6 z-50 group"
-        aria-label="Open AI assistant"
-      >
-        <span className="absolute inset-0 rounded-full pulse-ring bg-fuchsia-500/30" />
-        <span className="relative flex items-center gap-2 px-4 py-3 rounded-full bg-gradient-to-br from-fuchsia-500 via-pink-500 to-cyan-500 text-white shadow-2xl shadow-fuchsia-500/30 hover:scale-105 transition">
-          {open ? <X className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
-          <span className="text-sm font-medium pr-1">{open ? 'Close' : 'Ask AI'}</span>
-        </span>
-      </button>
-
-      <div className={`fixed bottom-24 right-6 z-50 w-[92vw] sm:w-[400px] h-[560px] glass-strong rounded-3xl shadow-2xl shadow-black/50 overflow-hidden flex flex-col transition-all duration-300 ${open ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
-        <div className="p-4 border-b border-white/10 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-fuchsia-500 to-cyan-500 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <div className="text-sm font-semibold">MoveMatch Concierge</div>
-            <div className="text-[11px] text-white/50 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Online · GPT-5
-            </div>
-          </div>
+    <div className="relative h-[520px] w-full hidden lg:block">
+      {/* Card 1 - back */}
+      <div className="absolute right-12 top-8 w-72 h-96 rounded-3xl overflow-hidden shadow-2xl shadow-black/50 transform rotate-6 fade-up">
+        <img src="https://images.unsplash.com/photo-1633149668746-2891c0ff7334?auto=format&fit=crop&w=600&q=80" alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
+        <div className="absolute bottom-4 left-4 right-4">
+          <div className="glass rounded-full px-2.5 py-1 inline-block text-[10px] mb-2">🌊 Beach + Coffee</div>
+          <div className="text-lg font-bold">Tulum, Mexico</div>
+          <div className="text-xs text-white/70">$2,400/mo · 98% match</div>
         </div>
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
-          {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${m.role === 'user' ? 'bg-white text-black rounded-br-md' : 'glass text-white/90 rounded-bl-md'}`}>
-                {m.content}
-              </div>
-            </div>
-          ))}
-          {loading && (
-            <div className="flex justify-start">
-              <div className="glass rounded-2xl rounded-bl-md px-3.5 py-2.5">
-                <span className="flex gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white/70 animate-bounce" style={{animationDelay:'0ms'}} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-white/70 animate-bounce" style={{animationDelay:'120ms'}} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-white/70 animate-bounce" style={{animationDelay:'240ms'}} />
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-        <form onSubmit={send} className="p-3 border-t border-white/10 flex gap-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Compare Lisbon vs. Bali…"
-            className="bg-white/5 border-white/10 rounded-full text-sm focus-visible:ring-fuchsia-400/50"
-          />
-          <Button type="submit" size="icon" disabled={loading || !input.trim()} className="rounded-full bg-white text-black hover:bg-white/90">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          </Button>
-        </form>
       </div>
-    </>
+      {/* Card 2 - middle */}
+      <div className="absolute right-44 top-32 w-72 h-96 rounded-3xl overflow-hidden shadow-2xl shadow-black/50 transform -rotate-3 fade-up" style={{ animationDelay: '120ms' }}>
+        <img src="https://images.unsplash.com/photo-1531819177115-428566ccfb50?auto=format&fit=crop&w=600&q=80" alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
+        <div className="absolute bottom-4 left-4 right-4">
+          <div className="glass rounded-full px-2.5 py-1 inline-block text-[10px] mb-2">🏛️ Nomad + Sun</div>
+          <div className="text-lg font-bold">Lisbon, Portugal</div>
+          <div className="text-xs text-white/70">$1,700/mo · 96% match</div>
+        </div>
+      </div>
+      {/* Card 3 - front */}
+      <div className="absolute right-0 top-56 w-72 h-96 rounded-3xl overflow-hidden shadow-2xl shadow-fuchsia-500/30 transform rotate-2 fade-up" style={{ animationDelay: '240ms' }}>
+        <img src="https://images.unsplash.com/photo-1774803681248-dc3cac13f018?auto=format&fit=crop&w=600&q=80" alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
+        <div className="absolute top-3 right-3 glass rounded-full px-2 py-1 text-[10px] flex items-center gap-1">
+          <Heart className="w-2.5 h-2.5 fill-rose-400 text-rose-400" /> Saved
+        </div>
+        <div className="absolute bottom-4 left-4 right-4">
+          <div className="glass rounded-full px-2.5 py-1 inline-block text-[10px] mb-2">🍃 Zen + Minimal</div>
+          <div className="text-lg font-bold">Kyoto, Japan</div>
+          <div className="text-xs text-white/70">$1,900/mo · 94% match</div>
+        </div>
+      </div>
+      {/* Floating AI badge */}
+      <div className="absolute -bottom-2 -left-4 glass-strong rounded-2xl p-4 shadow-2xl shadow-fuchsia-500/20 max-w-xs fade-up" style={{ animationDelay: '360ms' }}>
+        <div className="flex items-center gap-2 mb-1.5">
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-fuchsia-500 to-cyan-500 flex items-center justify-center">
+            <Sparkles className="w-3.5 h-3.5 text-white" />
+          </div>
+          <span className="text-xs font-semibold">AI Concierge</span>
+          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        </div>
+        <p className="text-xs text-white/80 leading-relaxed">"Tulum has stronger surf and coworking, Lisbon wins on community. Want me to compare costs?"</p>
+      </div>
+    </div>
   )
 }
 
 export default function App() {
-  const [prompt, setPrompt] = useState('')
-  const [placeholderIdx, setPlaceholderIdx] = useState(0)
-  const [results, setResults] = useState(null) // {summary, neighborhoods}
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [view, setView] = useState('home') // home | dashboard
-  const [saved, setSaved] = useState([])
-  const [chatOpen, setChatOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
 
-  const [preview, setPreview] = useState(null) // {neighborhood, loading, data}
-  const resultsRef = useRef(null)
-
-  // load saved
   useEffect(() => {
-    try {
-      const s = JSON.parse(localStorage.getItem('mm_saved') || '[]')
-      setSaved(s)
-    } catch {}
+    const onScroll = () => setScrolled(window.scrollY > 12)
+    window.addEventListener('scroll', onScroll)
+    return () => window.removeEventListener('scroll', onScroll)
   }, [])
-
-  // rotating placeholder
-  useEffect(() => {
-    const id = setInterval(() => setPlaceholderIdx(i => (i + 1) % PLACEHOLDERS.length), 2800)
-    return () => clearInterval(id)
-  }, [])
-
-  function saveItem(n) {
-    setSaved(prev => {
-      const exists = prev.find(p => p.id === n.id)
-      const next = exists ? prev.filter(p => p.id !== n.id) : [...prev, n]
-      try { localStorage.setItem('mm_saved', JSON.stringify(next)) } catch {}
-      return next
-    })
-  }
-  function isSaved(id) { return !!saved.find(s => s.id === id) }
-
-  function shareItem(n) {
-    const url = `${window.location.origin}/?look=${encodeURIComponent(n.city)}`
-    if (navigator.share) {
-      navigator.share({ title: `${n.name}, ${n.city}`, text: n.summary, url }).catch(() => {})
-    } else {
-      navigator.clipboard?.writeText(url)
-      alert('Share link copied!')
-    }
-  }
-
-  async function runMatch(q) {
-    const userQ = (q || prompt).trim()
-    if (!userQ) return
-    setPrompt(userQ)
-    setLoading(true)
-    setError('')
-    setResults(null)
-    try {
-      const res = await fetch('/api/match', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: userQ }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error || 'Match failed')
-      } else {
-        setResults(data)
-        setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 80)
-      }
-    } catch (e) {
-      setError('Network error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function openPreview(n) {
-    setPreview({ neighborhood: n, loading: true, data: null })
-    try {
-      const res = await fetch('/api/day-in-life', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ neighborhood: n, prompt }),
-      })
-      const data = await res.json()
-      setPreview({ neighborhood: n, loading: false, data })
-    } catch {
-      setPreview({ neighborhood: n, loading: false, data: { error: 'Failed' } })
-    }
-  }
 
   return (
     <div className="relative min-h-screen overflow-x-hidden">
       {/* background orbs */}
       <div className="orb animate-float bg-fuchsia-600/40" style={{ width: 520, height: 520, top: -120, left: -120 }} />
-      <div className="orb animate-float bg-cyan-500/30" style={{ width: 480, height: 480, top: 200, right: -160, animationDelay: '2s' }} />
-      <div className="orb animate-float bg-violet-600/30" style={{ width: 380, height: 380, top: 600, left: '40%', animationDelay: '4s' }} />
+      <div className="orb animate-float bg-cyan-500/30" style={{ width: 480, height: 480, top: 100, right: -160, animationDelay: '2s' }} />
+      <div className="orb animate-float bg-violet-600/25" style={{ width: 380, height: 380, top: 800, left: '40%', animationDelay: '4s' }} />
 
-      {/* NAV */}
-      <nav className="sticky top-0 z-40 px-4 sm:px-8 py-4 backdrop-blur-xl bg-black/30 border-b border-white/5">
+      {/* ============ NAV ============ */}
+      <nav className={`sticky top-0 z-40 px-4 sm:px-8 py-3.5 transition-all duration-300 ${scrolled ? 'backdrop-blur-xl bg-black/50 border-b border-white/5' : ''}`}>
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <button onClick={() => setView('home')} className="flex items-center gap-2.5 group">
-            <span className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-fuchsia-500 via-pink-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-fuchsia-500/30">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-fuchsia-500 via-pink-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-fuchsia-500/30 group-hover:scale-110 transition">
               <Compass className="w-5 h-5 text-white" />
             </span>
             <span className="text-lg font-bold tracking-tight">MoveMatch <span className="gradient-text">AI</span></span>
-          </button>
+          </Link>
 
-          <div className="hidden md:flex items-center gap-1">
-            <button onClick={() => setView('home')} className={`px-4 py-2 text-sm rounded-full transition ${view==='home' ? 'bg-white/10 text-white' : 'text-white/70 hover:text-white'}`}>Discover</button>
-            <button onClick={() => setView('dashboard')} className={`px-4 py-2 text-sm rounded-full transition ${view==='dashboard' ? 'bg-white/10 text-white' : 'text-white/70 hover:text-white'}`}>
-              Dashboard {saved.length > 0 && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-fuchsia-500 text-white">{saved.length}</span>}
-            </button>
-            <a href="#trending" className="px-4 py-2 text-sm text-white/70 hover:text-white">Trending</a>
-            <a href="#map" className="px-4 py-2 text-sm text-white/70 hover:text-white">Map</a>
+          <div className="hidden md:flex items-center gap-7">
+            <a href="#features" className="text-sm text-white/70 hover:text-white transition">Features</a>
+            <a href="#how" className="text-sm text-white/70 hover:text-white transition">How it works</a>
+            <a href="#properties" className="text-sm text-white/70 hover:text-white transition">Properties</a>
+            <a href="#pricing" className="text-sm text-white/70 hover:text-white transition">Pricing</a>
+            <a href="#faq" className="text-sm text-white/70 hover:text-white transition">FAQ</a>
           </div>
 
-          <Button onClick={() => setChatOpen(true)} className="rounded-full bg-white text-black hover:bg-white/90 text-sm font-medium gap-2">
-            <Sparkles className="w-4 h-4" /> Ask AI
-          </Button>
+          <div className="flex items-center gap-3">
+            <SignedOut>
+              <SignInButton mode="modal">
+                <Button variant="ghost" className="hidden sm:inline-flex text-sm text-white/80 hover:text-white hover:bg-white/5 rounded-full">Sign in</Button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <Button className="rounded-full bg-white text-black hover:bg-white/90 text-sm font-medium gap-1.5">
+                  Get started <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              </SignUpButton>
+            </SignedOut>
+            <SignedIn>
+              <Link href="/discover" className="hidden sm:inline-flex">
+                <Button className="rounded-full bg-white text-black hover:bg-white/90 text-sm font-medium gap-1.5">
+                  Open app <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              </Link>
+              <UserButton afterSignOutUrl="/" />
+            </SignedIn>
+            <button onClick={() => setMenuOpen(true)} className="md:hidden p-2">
+              <Menu className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </nav>
+      <MobileMenu open={menuOpen} setOpen={setMenuOpen} />
 
-      {view === 'home' && (
-        <>
-          {/* HERO */}
-          <section className="relative px-4 sm:px-8 pt-16 sm:pt-24 pb-12">
-            <div className="max-w-5xl mx-auto text-center relative z-10">
-              <div className="inline-flex items-center gap-2 glass rounded-full px-3.5 py-1.5 mb-7 text-xs text-white/80 fade-up">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Powered by GPT-5 · Real-time lifestyle matching
-              </div>
+      {/* ============ HERO ============ */}
+      <section className="relative px-4 sm:px-8 pt-16 sm:pt-24 pb-20 sm:pb-32">
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+          <div className="relative z-10">
+            <div className="inline-flex items-center gap-2 glass rounded-full px-3.5 py-1.5 mb-6 text-xs text-white/85 fade-up">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Powered by GPT-5 · Now in beta
+            </div>
 
-              <h1 className="text-5xl sm:text-7xl md:text-8xl font-bold tracking-tight leading-[1.02] fade-up" style={{ animationDelay: '60ms' }}>
-                Find your dream
-                <br />
-                <span className="gradient-text">lifestyle.</span> Not a listing.
-              </h1>
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.02] fade-up" style={{ animationDelay: '60ms' }}>
+              Find your dream
+              <br />
+              <span className="gradient-text">lifestyle.</span> Not a listing.
+            </h1>
 
-              <p className="mt-7 text-base sm:text-xl text-white/60 max-w-2xl mx-auto leading-relaxed fade-up" style={{ animationDelay: '180ms' }}>
-                Skip the filters. Describe how you want to live — our AI matches you to the world's most compatible neighborhoods and homes.
-              </p>
+            <p className="mt-6 text-base sm:text-lg text-white/60 max-w-xl leading-relaxed fade-up" style={{ animationDelay: '160ms' }}>
+              MoveMatch AI is the first real estate platform that ranks neighborhoods by <em className="text-white/90 not-italic font-medium">lifestyle compatibility</em>. Describe how you want to live — we'll find where.
+            </p>
 
-              {/* Search bar */}
-              <form
-                onSubmit={(e) => { e.preventDefault(); runMatch() }}
-                className="mt-10 fade-up"
-                style={{ animationDelay: '280ms' }}
-              >
-                <div className="relative gradient-border rounded-2xl p-1.5 flex items-center gap-2 shadow-2xl shadow-fuchsia-500/10">
-                  <div className="flex items-center pl-4 pr-1 text-white/40">
-                    <Search className="w-5 h-5" />
-                  </div>
-                  <input
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    placeholder={'I want ' + PLACEHOLDERS[placeholderIdx]}
-                    className="flex-1 bg-transparent border-0 outline-none focus:ring-0 text-base sm:text-lg py-4 placeholder:text-white/30 text-white"
-                  />
-                  <Button
-                    type="submit"
-                    disabled={loading || !prompt.trim()}
-                    className="rounded-xl bg-gradient-to-br from-fuchsia-500 via-pink-500 to-cyan-500 hover:opacity-90 text-white font-medium text-sm sm:text-base px-5 sm:px-6 h-12 sm:h-12 disabled:opacity-50"
-                  >
-                    {loading ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Matching…</>) :
-                      (<><Sparkles className="w-4 h-4 mr-2" /><span className="hidden sm:inline">Find my lifestyle match</span><span className="sm:hidden">Match</span></>)}
+            <div className="mt-8 flex flex-wrap gap-3 fade-up" style={{ animationDelay: '260ms' }}>
+              <SignedOut>
+                <SignUpButton mode="modal">
+                  <Button className="rounded-full bg-gradient-to-br from-fuchsia-500 via-pink-500 to-cyan-500 hover:opacity-90 text-white text-base font-medium px-6 h-12 gap-2 shadow-lg shadow-fuchsia-500/30">
+                    <Sparkles className="w-4 h-4" /> Find my lifestyle match
                   </Button>
-                </div>
-              </form>
-
-              {/* quick prompts */}
-              <div className="mt-6 flex flex-wrap gap-2 justify-center fade-up" style={{ animationDelay: '360ms' }}>
-                {QUICK_PROMPTS.map((p) => (
-                  <button
-                    key={p.label}
-                    onClick={() => runMatch(p.q)}
-                    disabled={loading}
-                    className="group glass hover:bg-white/10 rounded-full px-3.5 py-1.5 text-xs sm:text-sm text-white/80 transition flex items-center gap-1.5"
-                  >
-                    <span>{p.icon}</span> {p.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* mini stats */}
-              <div className="mt-14 flex flex-wrap items-center justify-center gap-x-10 gap-y-4 text-xs sm:text-sm text-white/40 fade-up" style={{ animationDelay: '480ms' }}>
-                <div className="flex items-center gap-2"><Globe className="w-4 h-4" /> 60+ countries</div>
-                <div className="flex items-center gap-2"><Users className="w-4 h-4" /> 12k+ matches generated</div>
-                <div className="flex items-center gap-2"><Sparkles className="w-4 h-4" /> Real-time AI scoring</div>
-                <div className="flex items-center gap-2"><Star className="w-4 h-4" /> 4.9 trusted</div>
-              </div>
+                </SignUpButton>
+              </SignedOut>
+              <SignedIn>
+                <Link href="/discover">
+                  <Button className="rounded-full bg-gradient-to-br from-fuchsia-500 via-pink-500 to-cyan-500 hover:opacity-90 text-white text-base font-medium px-6 h-12 gap-2 shadow-lg shadow-fuchsia-500/30">
+                    <Sparkles className="w-4 h-4" /> Open the matcher
+                  </Button>
+                </Link>
+              </SignedIn>
+              <a href="#how">
+                <Button variant="outline" className="rounded-full border-white/15 bg-white/5 hover:bg-white/10 text-base h-12 px-6 gap-2">
+                  <Play className="w-3.5 h-3.5" /> Watch demo
+                </Button>
+              </a>
             </div>
-          </section>
 
-          {/* AI RESULTS */}
-          <section ref={resultsRef} className="px-4 sm:px-8 py-8">
-            <div className="max-w-7xl mx-auto">
-              {error && (
-                <div className="glass rounded-2xl p-6 text-rose-300 text-center">{error}</div>
-              )}
-
-              {loading && !results && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[...Array(6)].map((_, i) => (
-                    <div key={i} className="gradient-border rounded-2xl overflow-hidden">
-                      <div className="h-56 shimmer" />
-                      <div className="p-5 space-y-3">
-                        <div className="h-4 w-2/3 shimmer rounded" />
-                        <div className="h-3 w-full shimmer rounded" />
-                        <div className="h-3 w-5/6 shimmer rounded" />
-                        <div className="grid grid-cols-2 gap-3 pt-2">
-                          {[...Array(6)].map((_, j) => <div key={j} className="h-2 shimmer rounded-full" />)}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {results && (
-                <div className="space-y-8">
-                  <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 fade-up">
-                    <div>
-                      <div className="text-xs uppercase tracking-widest text-fuchsia-300/80 mb-2 flex items-center gap-2">
-                        <Sparkles className="w-3.5 h-3.5" /> AI lifestyle match
-                      </div>
-                      <h2 className="text-3xl sm:text-5xl font-bold leading-tight max-w-3xl">
-                        {results.summary || 'Your dream destinations, ranked.'}
-                      </h2>
-                      <p className="text-white/50 mt-2 text-sm">Matched against 10k+ neighborhoods worldwide</p>
-                    </div>
-                    <Button onClick={() => runMatch()} variant="outline" className="border-white/15 bg-white/5 hover:bg-white/10 rounded-full self-start md:self-auto">
-                      <Sparkles className="w-3.5 h-3.5 mr-2" /> Regenerate
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {results.neighborhoods.map((n, i) => (
-                      <PropertyCard
-                        key={n.id}
-                        n={n}
-                        idx={i}
-                        saved={isSaved(n.id)}
-                        onSave={saveItem}
-                        onPreview={openPreview}
-                        onShare={shareItem}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
+            <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-3 text-xs text-white/45 fade-up" style={{ animationDelay: '360ms' }}>
+              <div className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" /> 60+ countries</div>
+              <div className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> 12k+ users</div>
+              <div className="flex items-center gap-1.5"><Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" /> 4.9 / 5</div>
+              <div className="flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-yellow-300" /> Free to start</div>
             </div>
-          </section>
+          </div>
 
-          {/* TRENDING */}
-          <section id="trending" className="px-4 sm:px-8 py-16">
-            <div className="max-w-7xl mx-auto">
-              <div className="flex items-end justify-between mb-8">
-                <div>
-                  <div className="text-xs uppercase tracking-widest text-cyan-300/80 mb-2 flex items-center gap-2">
-                    <TrendingUp className="w-3.5 h-3.5" /> Trending right now
-                  </div>
-                  <h2 className="text-3xl sm:text-4xl font-bold">Where the world is moving</h2>
-                </div>
-                <a className="hidden sm:flex text-sm text-white/60 hover:text-white items-center gap-1">See all <ArrowRight className="w-3.5 h-3.5" /></a>
+          <HeroVisual />
+        </div>
+      </section>
+
+      {/* ============ LOGO STRIP ============ */}
+      <section className="px-4 sm:px-8 py-6 border-y border-white/5">
+        <div className="max-w-7xl mx-auto">
+          <p className="text-center text-xs uppercase tracking-[0.3em] text-white/30 mb-5">As featured in</p>
+          <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
+            {LOGOS.map(l => (
+              <span key={l} className="text-white/30 font-semibold tracking-tight text-base sm:text-lg hover:text-white/70 transition">{l}</span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ============ HOW IT WORKS ============ */}
+      <section id="how" className="px-4 sm:px-8 py-20 sm:py-28">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-14">
+            <div className="text-xs uppercase tracking-widest text-fuchsia-300/80 mb-3">How it works</div>
+            <h2 className="text-4xl sm:text-5xl font-bold tracking-tight">Three steps to your <span className="gradient-text">dream life</span>.</h2>
+            <p className="text-white/50 mt-3 max-w-xl mx-auto">No filters. No bedroom counts. Just lifestyle.</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            {STEPS.map((s, i) => (
+              <div key={s.n} className="gradient-border rounded-3xl p-8 relative overflow-hidden group fade-up" style={{ animationDelay: `${i * 100}ms` }}>
+                <div className="text-7xl font-bold gradient-text opacity-80 mb-4">{s.n}</div>
+                <h3 className="text-xl font-semibold mb-2">{s.title}</h3>
+                <p className="text-sm text-white/60 leading-relaxed">{s.desc}</p>
+                {i < STEPS.length - 1 && (
+                  <ArrowRight className="hidden md:block absolute top-12 -right-4 w-8 h-8 text-white/10" />
+                )}
               </div>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {TRENDING.map((t, i) => (
-                  <div key={t.city} className="group relative h-72 rounded-2xl overflow-hidden cursor-pointer fade-up" style={{ animationDelay: `${i * 80}ms` }}>
-                    <img src={t.img} alt={t.city} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-                    <div className="absolute top-3 right-3 glass rounded-full px-2.5 py-1 text-[11px] text-emerald-300 font-semibold">{t.growth}</div>
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <div className="text-[11px] text-white/70 uppercase tracking-wider">{t.country}</div>
-                      <div className="text-2xl font-bold">{t.city}</div>
-                      <div className="text-xs text-white/70 mt-1">{t.tag}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
+            ))}
+          </div>
+        </div>
+      </section>
 
-          {/* INTERACTIVE MAP */}
-          <section id="map" className="px-4 sm:px-8 py-16">
-            <div className="max-w-7xl mx-auto">
-              <div className="mb-8">
-                <div className="text-xs uppercase tracking-widest text-fuchsia-300/80 mb-2 flex items-center gap-2">
-                  <Globe className="w-3.5 h-3.5" /> Live discovery map
-                </div>
-                <h2 className="text-3xl sm:text-4xl font-bold">Explore by vibe</h2>
-              </div>
-
-              <div className="relative gradient-border rounded-3xl overflow-hidden h-[460px]">
-                {/* fake-map background */}
-                <div className="absolute inset-0 opacity-50"
-                  style={{
-                    backgroundImage:
-                      'radial-gradient(circle at 25% 35%, rgba(192,132,252,0.35), transparent 35%), radial-gradient(circle at 65% 55%, rgba(103,232,249,0.3), transparent 35%), radial-gradient(circle at 80% 30%, rgba(244,114,182,0.25), transparent 40%)',
-                  }}
-                />
-                <div className="absolute inset-0"
-                  style={{
-                    backgroundImage:
-                      'linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
-                    backgroundSize: '40px 40px',
-                  }}
-                />
-                {/* world silhouette via emoji is too crude. use abstract dots */}
-                {[...Array(80)].map((_, i) => (
-                  <div key={i} className="absolute w-0.5 h-0.5 rounded-full bg-white/20"
-                    style={{ left: `${(i * 53) % 100}%`, top: `${(i * 37) % 100}%` }}
-                  />
-                ))}
-
-                {/* pins */}
-                {MAP_PINS.map((p, i) => (
-                  <div key={i} className="absolute" style={{ left: p.left, top: p.top }}>
-                    <div className="relative">
-                      <div className="absolute inset-0 rounded-full bg-fuchsia-400/40 pulse-ring" />
-                      <div className="relative w-3.5 h-3.5 rounded-full bg-gradient-to-br from-fuchsia-400 to-cyan-400 ring-2 ring-white/40 cursor-pointer hover:scale-150 transition" />
-                      <div className="absolute left-5 top-1/2 -translate-y-1/2 glass rounded-full px-2.5 py-1 text-[11px] whitespace-nowrap opacity-0 hover:opacity-100 transition pointer-events-none">
-                        {['Lisbon','Tulum','Bali','Bansko','Medellín','Lisbon','Cape Town'][i]}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {/* filters */}
-                <div className="absolute top-5 left-5 flex flex-wrap gap-2">
-                  {['All','Beach','Mountain','City','Nomad','Wellness'].map((f, i) => (
-                    <button key={f} className={`glass rounded-full px-3 py-1.5 text-xs ${i === 0 ? 'bg-white text-black' : 'text-white/80 hover:bg-white/10'}`}>
-                      {f}
-                    </button>
-                  ))}
-                </div>
-                <div className="absolute bottom-5 right-5 glass rounded-2xl p-3 text-xs text-white/70 max-w-xs">
-                  <div className="flex items-center gap-2 mb-1.5"><Sparkles className="w-3.5 h-3.5 text-fuchsia-400" /><span className="font-semibold text-white/90">Heatmap legend</span></div>
-                  <div className="flex items-center gap-3 text-[11px]">
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-fuchsia-400" />Premium</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cyan-400" />Nomad</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" />Family</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* FOOTER */}
-          <footer className="px-4 sm:px-8 py-12 border-t border-white/5 mt-12">
-            <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between gap-6 text-sm text-white/40">
-              <div className="flex items-center gap-2.5">
-                <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-fuchsia-500 to-cyan-500 flex items-center justify-center">
-                  <Compass className="w-4 h-4 text-white" />
-                </span>
-                <span>MoveMatch AI · © {new Date().getFullYear()}</span>
-              </div>
-              <div className="flex gap-6">
-                <span>Made with GPT-5</span>
-                <span>Privacy</span>
-                <span>Terms</span>
-              </div>
-            </div>
-          </footer>
-        </>
-      )}
-
-      {view === 'dashboard' && (
-        <DashboardView saved={saved} onUnsave={saveItem} onPreview={openPreview} onShare={shareItem} onGoHome={() => setView('home')} />
-      )}
-
-      {/* DAY IN LIFE MODAL */}
-      <Dialog open={!!preview} onOpenChange={(o) => !o && setPreview(null)}>
-        <DialogContent className="max-w-3xl bg-zinc-950 border-white/10 text-white p-0 overflow-hidden max-h-[88vh] overflow-y-auto">
-          {preview && (
+      {/* ============ FEATURED PROPERTIES ============ */}
+      <section id="properties" className="px-4 sm:px-8 py-20">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-end justify-between mb-10 flex-wrap gap-4">
             <div>
-              <div className="relative h-56 overflow-hidden">
-                <img src={preview.neighborhood.image} alt="" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
-                <div className="absolute bottom-4 left-6 right-6">
-                  <div className="text-xs text-white/60 uppercase tracking-widest">A day in</div>
-                  <div className="text-3xl font-bold">{preview.neighborhood.name}, {preview.neighborhood.city}</div>
-                </div>
-              </div>
-
-              <div className="p-6 space-y-5">
-                {preview.loading && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-fuchsia-300 text-sm">
-                      <Loader2 className="w-4 h-4 animate-spin" /> Generating immersive preview…
-                    </div>
-                    {[...Array(4)].map((_,i) => <div key={i} className="h-16 shimmer rounded-xl" />)}
+              <div className="text-xs uppercase tracking-widest text-cyan-300/80 mb-3">Featured neighborhoods</div>
+              <h2 className="text-4xl sm:text-5xl font-bold tracking-tight">Hand-picked by our AI.</h2>
+              <p className="text-white/50 mt-2 max-w-xl">Real matches from real user prompts this week.</p>
+            </div>
+            <SignedOut>
+              <SignUpButton mode="modal">
+                <Button variant="outline" className="rounded-full border-white/15 bg-white/5 hover:bg-white/10">
+                  See all matches <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                </Button>
+              </SignUpButton>
+            </SignedOut>
+            <SignedIn>
+              <Link href="/discover">
+                <Button variant="outline" className="rounded-full border-white/15 bg-white/5 hover:bg-white/10">
+                  See all matches <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                </Button>
+              </Link>
+            </SignedIn>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {PROPERTIES.map((p, i) => (
+              <div key={i} className="group gradient-border rounded-2xl overflow-hidden fade-up" style={{ animationDelay: `${i * 70}ms` }}>
+                <div className="relative h-64 overflow-hidden">
+                  <img src={p.img} alt={p.city} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+                  <div className="absolute top-3 left-3 glass rounded-full px-2.5 py-1 text-[11px]">{p.vibe}</div>
+                  <div className="absolute top-3 right-3 glass rounded-full p-2">
+                    <Heart className="w-3.5 h-3.5" />
                   </div>
-                )}
-                {preview.data && !preview.data.error && (
-                  <>
-                    {[
-                      { k: 'morning',   label: 'Morning',   Icon: Sun,      tint: 'from-amber-500/20 to-transparent' },
-                      { k: 'midday',    label: 'Midday',    Icon: Coffee,   tint: 'from-orange-500/20 to-transparent' },
-                      { k: 'afternoon', label: 'Afternoon', Icon: CloudSun, tint: 'from-pink-500/20 to-transparent' },
-                      { k: 'evening',   label: 'Evening',   Icon: Music,    tint: 'from-violet-500/20 to-transparent' },
-                    ].map(({ k, label, Icon, tint }) => (
-                      preview.data[k] && (
-                        <div key={k} className={`relative rounded-2xl p-5 bg-gradient-to-br ${tint} border border-white/5`}>
-                          <div className="flex items-center gap-2 mb-2 text-white/90">
-                            <Icon className="w-4 h-4" />
-                            <span className="text-xs uppercase tracking-widest font-medium">{label}</span>
-                          </div>
-                          <p className="text-white/80 text-sm leading-relaxed">{preview.data[k]}</p>
-                        </div>
-                      )
-                    ))}
-                    {preview.data.soundtrack && (
-                      <div className="glass rounded-2xl px-4 py-3 flex items-center gap-3 text-sm">
-                        <Music className="w-4 h-4 text-fuchsia-400" />
-                        <span className="text-white/60">Soundtrack:</span>
-                        <span className="text-white font-medium">{preview.data.soundtrack}</span>
+                  <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                    <div>
+                      <div className="text-[11px] text-white/70 uppercase tracking-wider flex items-center gap-1">
+                        <MapPin className="w-3 h-3" /> {p.country}
                       </div>
-                    )}
-                  </>
-                )}
-                {preview.data?.error && (
-                  <div className="text-rose-300 text-sm">Could not generate. Try again.</div>
-                )}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <FloatingChat open={chatOpen} setOpen={setChatOpen} />
-    </div>
-  )
-}
-
-function DashboardView({ saved, onUnsave, onPreview, onShare, onGoHome }) {
-  const [budget, setBudget] = useState(3500)
-  const [checked, setChecked] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('mm_check') || '[]') } catch { return [] }
-  })
-  function toggle(item) {
-    setChecked(prev => {
-      const next = prev.includes(item) ? prev.filter(x => x !== item) : [...prev, item]
-      try { localStorage.setItem('mm_check', JSON.stringify(next)) } catch {}
-      return next
-    })
-  }
-  const avgCost = saved.length ? Math.round(saved.reduce((a, n) => a + (n.monthlyCost || 0), 0) / saved.length) : 0
-
-  return (
-    <div className="relative px-4 sm:px-8 pt-12 pb-24 max-w-7xl mx-auto">
-      <div className="mb-10 fade-up">
-        <div className="text-xs uppercase tracking-widest text-fuchsia-300/80 mb-2 flex items-center gap-2">
-          <Bookmark className="w-3.5 h-3.5" /> Your dashboard
-        </div>
-        <h1 className="text-4xl sm:text-5xl font-bold">Welcome back, dreamer.</h1>
-        <p className="text-white/50 mt-2">Saved places, planning tools and your relocation roadmap.</p>
-      </div>
-
-      {/* stat tiles */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-        {[
-          { label: 'Saved places', value: saved.length, Icon: Heart, color: 'from-rose-400 to-pink-500' },
-          { label: 'Avg monthly', value: avgCost ? `$${avgCost.toLocaleString()}` : '—', Icon: Wallet, color: 'from-emerald-400 to-teal-500' },
-          { label: 'Checklist done', value: `${checked.length}/${CHECKLIST.length}`, Icon: CheckCircle2, color: 'from-fuchsia-400 to-violet-500' },
-          { label: 'AI sessions', value: '12', Icon: Sparkles, color: 'from-cyan-400 to-blue-500' },
-        ].map((s, i) => (
-          <div key={i} className="gradient-border rounded-2xl p-5 fade-up" style={{ animationDelay: `${i * 70}ms` }}>
-            <div className="flex items-center justify-between">
-              <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center`}>
-                <s.Icon className="w-4 h-4 text-white" />
-              </div>
-            </div>
-            <div className="mt-3 text-2xl font-bold">{s.value}</div>
-            <div className="text-xs text-white/50 mt-1">{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Saved cards */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Saved destinations</h2>
-            <button onClick={onGoHome} className="text-sm text-fuchsia-300 hover:text-fuchsia-200 flex items-center gap-1">
-              Find more <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          {saved.length === 0 ? (
-            <div className="gradient-border rounded-2xl p-12 text-center">
-              <Heart className="w-10 h-10 mx-auto text-white/20 mb-3" />
-              <div className="text-white/60">No saved places yet</div>
-              <Button onClick={onGoHome} className="mt-4 bg-white text-black hover:bg-white/90 rounded-full">Start matching</Button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {saved.map((n) => (
-                <div key={n.id} className="gradient-border rounded-2xl p-4 flex gap-4 items-center group">
-                  <img src={n.image} className="w-24 h-24 rounded-xl object-cover" alt="" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span>{n.emoji}</span>
-                      <div className="font-semibold truncate">{n.name}, {n.city}</div>
-                      <span className="ml-auto text-xs gradient-text font-bold">{n.matchPercent}%</span>
+                      <div className="text-xl font-bold">{p.city}</div>
                     </div>
-                    <div className="text-xs text-white/50 mt-0.5">{n.vibe} · ${n.monthlyCost?.toLocaleString?.()}/mo</div>
-                    <div className="mt-2 flex gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => onPreview(n)} className="h-7 px-2.5 text-xs">
-                        <Play className="w-3 h-3 mr-1" /> Preview
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => onShare(n)} className="h-7 px-2.5 text-xs">
-                        <Share2 className="w-3 h-3 mr-1" /> Share
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => onUnsave(n)} className="h-7 px-2.5 text-xs text-rose-300">
-                        Remove
-                      </Button>
+                    <div className="text-right">
+                      <div className="text-[10px] uppercase tracking-widest text-white/60">Match</div>
+                      <div className="text-2xl font-bold gradient-text">{p.match}%</div>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* right column */}
-        <div className="space-y-6">
-          {/* Budget planner */}
-          <div className="gradient-border rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Wallet className="w-4 h-4 text-emerald-400" />
-              <h3 className="font-semibold">Budget planner</h3>
-            </div>
-            <div className="text-3xl font-bold gradient-text">${budget.toLocaleString()}</div>
-            <div className="text-xs text-white/50">target monthly budget</div>
-            <input
-              type="range"
-              min={800}
-              max={12000}
-              step={100}
-              value={budget}
-              onChange={(e) => setBudget(Number(e.target.value))}
-              className="w-full mt-4 accent-fuchsia-500"
-            />
-            <div className="flex justify-between text-[10px] text-white/40 mt-1">
-              <span>$800</span><span>$12k+</span>
-            </div>
-            <div className="mt-4 text-xs text-white/60">
-              {budget < 1500 && 'Backpacker · SE Asia, Eastern Europe'}
-              {budget >= 1500 && budget < 3500 && 'Nomad · Lisbon, Medellín, Bali'}
-              {budget >= 3500 && budget < 6500 && 'Comfortable · Barcelona, Mexico City, Tokyo'}
-              {budget >= 6500 && 'Luxury · Dubai, NYC, Singapore, London'}
-            </div>
-          </div>
-
-          {/* Checklist */}
-          <div className="gradient-border rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Plane className="w-4 h-4 text-cyan-400" />
-              <h3 className="font-semibold">Relocation checklist</h3>
-            </div>
-            <Progress value={(checked.length / CHECKLIST.length) * 100} className="h-1.5 mb-4" />
-            <div className="space-y-2">
-              {CHECKLIST.map((item) => {
-                const on = checked.includes(item)
-                return (
-                  <button key={item} onClick={() => toggle(item)} className="w-full flex items-center gap-2.5 text-left text-sm py-1 group">
-                    {on ? <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" /> : <Circle className="w-4 h-4 text-white/30 flex-shrink-0" />}
-                    <span className={`${on ? 'line-through text-white/40' : 'text-white/85'} group-hover:text-white transition`}>{item}</span>
-                  </button>
-                )
-              })}
-            </div>
+                <div className="p-4 flex items-center justify-between">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-white/40">Est. monthly</div>
+                    <div className="text-lg font-semibold">${p.price.toLocaleString()}</div>
+                  </div>
+                  <SignedOut>
+                    <SignUpButton mode="modal">
+                      <Button size="sm" className="rounded-full bg-white text-black hover:bg-white/90">
+                        <Play className="w-3 h-3 mr-1.5 fill-black" /> Preview
+                      </Button>
+                    </SignUpButton>
+                  </SignedOut>
+                  <SignedIn>
+                    <Link href="/discover">
+                      <Button size="sm" className="rounded-full bg-white text-black hover:bg-white/90">
+                        <Play className="w-3 h-3 mr-1.5 fill-black" /> Preview
+                      </Button>
+                    </Link>
+                  </SignedIn>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* ============ FEATURES ============ */}
+      <section id="features" className="px-4 sm:px-8 py-24 relative">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-14">
+            <div className="text-xs uppercase tracking-widest text-fuchsia-300/80 mb-3">What's inside</div>
+            <h2 className="text-4xl sm:text-5xl font-bold tracking-tight max-w-3xl mx-auto">Built like a luxury concierge. Priced like a tool.</h2>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {FEATURES.map((f, i) => (
+              <div key={f.title} className="gradient-border rounded-2xl p-6 hover:bg-white/[0.03] transition fade-up" style={{ animationDelay: `${i * 60}ms` }}>
+                <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${f.color} flex items-center justify-center mb-4 shadow-lg`}>
+                  <f.Icon className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">{f.title}</h3>
+                <p className="text-sm text-white/55 leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ============ TESTIMONIALS ============ */}
+      <section id="testimonials" className="px-4 sm:px-8 py-24">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-14">
+            <div className="text-xs uppercase tracking-widest text-cyan-300/80 mb-3">Loved by movers worldwide</div>
+            <h2 className="text-4xl sm:text-5xl font-bold tracking-tight">Real people. Real moves.</h2>
+            <div className="flex items-center justify-center gap-1 mt-4">
+              {[...Array(5)].map((_, i) => <Star key={i} className="w-4 h-4 fill-amber-300 text-amber-300" />)}
+              <span className="text-sm text-white/60 ml-2">4.9 from 2,400+ users</span>
+            </div>
+          </div>
+          <div className="grid md:grid-cols-2 gap-5">
+            {TESTIMONIALS.map((t, i) => (
+              <div key={t.name} className="gradient-border rounded-3xl p-7 fade-up" style={{ animationDelay: `${i * 80}ms` }}>
+                <div className="flex items-center gap-1 mb-4">
+                  {[...Array(5)].map((_, j) => <Star key={j} className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />)}
+                </div>
+                <p className="text-base text-white/85 leading-relaxed mb-5">"{t.quote}"</p>
+                <div className="flex items-center gap-3">
+                  <img src={t.img} alt={t.name} className="w-11 h-11 rounded-full object-cover ring-2 ring-white/10" />
+                  <div>
+                    <div className="font-semibold text-sm">{t.name}</div>
+                    <div className="text-xs text-white/50">{t.role}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ============ PRICING ============ */}
+      <section id="pricing" className="px-4 sm:px-8 py-24">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-14">
+            <div className="text-xs uppercase tracking-widest text-fuchsia-300/80 mb-3">Pricing</div>
+            <h2 className="text-4xl sm:text-5xl font-bold tracking-tight">Free forever. Pro when you're serious.</h2>
+            <p className="text-white/50 mt-3">Cancel anytime. No surprises.</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-5">
+            {/* Free */}
+            <div className="gradient-border rounded-3xl p-7 fade-up">
+              <div className="text-xs uppercase tracking-widest text-white/50 mb-3">Free</div>
+              <div className="text-4xl font-bold mb-1">$0</div>
+              <div className="text-xs text-white/40 mb-6">forever</div>
+              <ul className="space-y-2.5 text-sm mb-7">
+                {['5 AI matches per month', 'Day-in-the-life previews', 'Save up to 10 destinations', 'Trending discovery', 'Mobile + desktop'].map(b => (
+                  <li key={b} className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400 flex-shrink-0" /><span className="text-white/80">{b}</span></li>
+                ))}
+              </ul>
+              <SignedOut>
+                <SignUpButton mode="modal">
+                  <Button variant="outline" className="w-full border-white/15 bg-white/5 hover:bg-white/10 rounded-full">Get started</Button>
+                </SignUpButton>
+              </SignedOut>
+              <SignedIn>
+                <Link href="/discover"><Button variant="outline" className="w-full border-white/15 bg-white/5 hover:bg-white/10 rounded-full">Open app</Button></Link>
+              </SignedIn>
+            </div>
+            {/* Pro */}
+            <div className="relative rounded-3xl p-7 fade-up overflow-hidden bg-gradient-to-br from-fuchsia-600/20 via-pink-500/10 to-cyan-500/20 border border-fuchsia-400/30" style={{ animationDelay: '80ms' }}>
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] uppercase tracking-widest font-bold bg-gradient-to-r from-fuchsia-500 to-cyan-500">Most popular</div>
+              <div className="text-xs uppercase tracking-widest text-fuchsia-200 mb-3">Pro</div>
+              <div className="flex items-baseline gap-1.5 mb-1">
+                <span className="text-4xl font-bold">$19</span>
+                <span className="text-sm text-white/60">/month</span>
+              </div>
+              <div className="text-xs text-white/50 mb-6">or $190/year (save 17%)</div>
+              <ul className="space-y-2.5 text-sm mb-7">
+                {['Unlimited AI matches', 'Floating AI concierge (GPT-5)', 'Budget planner + cost projections', 'Relocation roadmap', 'Save unlimited destinations', 'Compare cities side-by-side', 'Priority response time'].map(b => (
+                  <li key={b} className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400 flex-shrink-0" /><span className="text-white/85">{b}</span></li>
+                ))}
+              </ul>
+              <SignedOut>
+                <SignUpButton mode="modal">
+                  <Button className="w-full rounded-full bg-gradient-to-br from-fuchsia-500 to-cyan-500 hover:opacity-90 font-medium shadow-lg shadow-fuchsia-500/30">
+                    Start 7-day free trial
+                  </Button>
+                </SignUpButton>
+              </SignedOut>
+              <SignedIn>
+                <Button className="w-full rounded-full bg-gradient-to-br from-fuchsia-500 to-cyan-500 hover:opacity-90 font-medium shadow-lg shadow-fuchsia-500/30">
+                  Upgrade to Pro
+                </Button>
+              </SignedIn>
+            </div>
+            {/* Founder */}
+            <div className="gradient-border rounded-3xl p-7 fade-up" style={{ animationDelay: '160ms' }}>
+              <div className="text-xs uppercase tracking-widest text-white/50 mb-3 flex items-center gap-2">Founder <Trophy className="w-3 h-3 text-amber-300" /></div>
+              <div className="flex items-baseline gap-1.5 mb-1">
+                <span className="text-4xl font-bold">$290</span>
+                <span className="text-sm text-white/60">once</span>
+              </div>
+              <div className="text-xs text-white/50 mb-6">Lifetime access · 100 spots left</div>
+              <ul className="space-y-2.5 text-sm mb-7">
+                {['Everything in Pro forever', 'Founder badge in community', 'Early access to new features', 'Direct line to founders', 'AI relocation specialist (1 hr)', 'Custom city deep-dives'].map(b => (
+                  <li key={b} className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400 flex-shrink-0" /><span className="text-white/85">{b}</span></li>
+                ))}
+              </ul>
+              <Button variant="outline" className="w-full border-amber-400/30 bg-amber-400/5 hover:bg-amber-400/10 text-amber-200 rounded-full">
+                Become a founder
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============ FAQ ============ */}
+      <section id="faq" className="px-4 sm:px-8 py-24">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-12">
+            <div className="text-xs uppercase tracking-widest text-cyan-300/80 mb-3">Frequently asked</div>
+            <h2 className="text-4xl sm:text-5xl font-bold tracking-tight">Got questions?</h2>
+          </div>
+          <Accordion type="single" collapsible className="space-y-3">
+            {FAQ.map((f, i) => (
+              <AccordionItem key={i} value={`item-${i}`} className="gradient-border rounded-2xl px-5 border-0">
+                <AccordionTrigger className="text-left text-base font-medium hover:no-underline py-5">
+                  {f.q}
+                </AccordionTrigger>
+                <AccordionContent className="text-white/65 text-sm leading-relaxed pb-5">
+                  {f.a}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </div>
+      </section>
+
+      {/* ============ FINAL CTA ============ */}
+      <section className="px-4 sm:px-8 py-24">
+        <div className="max-w-5xl mx-auto relative overflow-hidden rounded-[2rem] p-12 sm:p-16 text-center bg-gradient-to-br from-fuchsia-600/20 via-pink-500/10 to-cyan-500/20 border border-white/10">
+          <div className="absolute inset-0 -z-10">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-[120px] bg-fuchsia-500/20" />
+          </div>
+          <Sparkles className="w-8 h-8 mx-auto text-fuchsia-300 mb-4" />
+          <h2 className="text-4xl sm:text-6xl font-bold tracking-tight">Where will <span className="gradient-text">you</span> wake up tomorrow?</h2>
+          <p className="text-white/65 mt-5 text-lg max-w-xl mx-auto">12,400 dreamers have already found their next home with MoveMatch AI. Free to start. Magic from minute one.</p>
+          <div className="mt-9 flex flex-wrap justify-center gap-3">
+            <SignedOut>
+              <SignUpButton mode="modal">
+                <Button className="rounded-full bg-white text-black hover:bg-white/90 text-base font-medium px-7 h-12 gap-2">
+                  <Sparkles className="w-4 h-4" /> Get started free
+                </Button>
+              </SignUpButton>
+              <SignInButton mode="modal">
+                <Button variant="outline" className="rounded-full border-white/20 bg-white/5 hover:bg-white/10 h-12 px-7">
+                  Sign in
+                </Button>
+              </SignInButton>
+            </SignedOut>
+            <SignedIn>
+              <Link href="/discover">
+                <Button className="rounded-full bg-white text-black hover:bg-white/90 text-base font-medium px-7 h-12 gap-2">
+                  <Sparkles className="w-4 h-4" /> Open the matcher
+                </Button>
+              </Link>
+            </SignedIn>
+          </div>
+          <div className="mt-6 text-xs text-white/40">No credit card · Free forever plan · Cancel anytime</div>
+        </div>
+      </section>
+
+      {/* ============ FOOTER ============ */}
+      <footer className="px-4 sm:px-8 py-14 border-t border-white/5">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid sm:grid-cols-2 md:grid-cols-5 gap-8 mb-10">
+            <div className="md:col-span-2">
+              <div className="flex items-center gap-2.5 mb-4">
+                <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-fuchsia-500 via-pink-500 to-cyan-500 flex items-center justify-center">
+                  <Compass className="w-5 h-5 text-white" />
+                </span>
+                <span className="text-lg font-bold">MoveMatch <span className="gradient-text">AI</span></span>
+              </div>
+              <p className="text-sm text-white/45 leading-relaxed max-w-xs">
+                The AI-powered real estate platform that matches you to neighborhoods by lifestyle, not filters.
+              </p>
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-widest text-white/40 mb-3">Product</div>
+              <ul className="space-y-2 text-sm text-white/70">
+                <li><a href="#features" className="hover:text-white">Features</a></li>
+                <li><a href="#how" className="hover:text-white">How it works</a></li>
+                <li><a href="#pricing" className="hover:text-white">Pricing</a></li>
+                <li><Link href="/discover" className="hover:text-white">Discover</Link></li>
+              </ul>
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-widest text-white/40 mb-3">Company</div>
+              <ul className="space-y-2 text-sm text-white/70">
+                <li><a className="hover:text-white" href="#">About</a></li>
+                <li><a className="hover:text-white" href="#">Careers</a></li>
+                <li><a className="hover:text-white" href="#">Blog</a></li>
+                <li><a className="hover:text-white" href="#">Press</a></li>
+              </ul>
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-widest text-white/40 mb-3">Legal</div>
+              <ul className="space-y-2 text-sm text-white/70">
+                <li><a className="hover:text-white" href="#">Privacy</a></li>
+                <li><a className="hover:text-white" href="#">Terms</a></li>
+                <li><a className="hover:text-white" href="#">Cookies</a></li>
+                <li><a className="hover:text-white" href="#">Contact</a></li>
+              </ul>
+            </div>
+          </div>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-7 border-t border-white/5 text-xs text-white/35">
+            <div>© {new Date().getFullYear()} MoveMatch AI · Powered by GPT-5</div>
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> All systems operational</span>
+              <span>Made with ❤️ for movers</span>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

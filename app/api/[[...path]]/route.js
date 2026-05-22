@@ -1,6 +1,7 @@
 import { MongoClient } from 'mongodb'
 import { v4 as uuidv4 } from 'uuid'
 import { NextResponse } from 'next/server'
+import { auth } from '@clerk/nextjs/server'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -228,14 +229,44 @@ Be globally diverse, mix famous + lesser-known places. Match each neighborhood d
       }
     }
 
-    // ============ SAVE ============
+    // ============ SAVE / UNSAVE (Clerk-auth) ============
     if (route === '/save' && method === 'POST') {
+      const { userId } = await auth()
+      if (!userId) return handleCORS(NextResponse.json({ error: 'unauthorized' }, { status: 401 }))
       const body = await request.json()
+      const neighborhood = body.neighborhood || body
+      if (!neighborhood?.id) return handleCORS(NextResponse.json({ error: 'neighborhood required' }, { status: 400 }))
       try {
         const dbi = await connectToMongo()
-        await dbi.collection('saves').insertOne({ id: uuidv4(), ...body, at: new Date() })
-      } catch (e) {}
-      return handleCORS(NextResponse.json({ ok: true }))
+        const existing = await dbi.collection('saves').findOne({ userId, 'neighborhood.id': neighborhood.id })
+        if (existing) {
+          await dbi.collection('saves').deleteOne({ _id: existing._id })
+          return handleCORS(NextResponse.json({ ok: true, saved: false }))
+        }
+        await dbi.collection('saves').insertOne({
+          id: uuidv4(),
+          userId,
+          neighborhood,
+          at: new Date(),
+        })
+        return handleCORS(NextResponse.json({ ok: true, saved: true }))
+      } catch (e) {
+        console.error('save err', e)
+        return handleCORS(NextResponse.json({ error: 'save failed' }, { status: 500 }))
+      }
+    }
+
+    if (route === '/saves' && method === 'GET') {
+      const { userId } = await auth()
+      if (!userId) return handleCORS(NextResponse.json({ error: 'unauthorized' }, { status: 401 }))
+      try {
+        const dbi = await connectToMongo()
+        const docs = await dbi.collection('saves').find({ userId }).sort({ at: -1 }).limit(200).toArray()
+        const items = docs.map(({ _id, ...r }) => r.neighborhood).filter(Boolean)
+        return handleCORS(NextResponse.json({ items }))
+      } catch (e) {
+        return handleCORS(NextResponse.json({ items: [] }))
+      }
     }
 
     return handleCORS(NextResponse.json({ error: `Route ${route} not found` }, { status: 404 }))
