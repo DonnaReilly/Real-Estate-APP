@@ -97,7 +97,7 @@ https://github.com/DonnaReilly
 * Frontend Developer Opportunities
 * Freelance Projects
 * Startup Collaborations
-* Junior Frontend Roles
+* Frontend Roles
 * Remote Web Development Work
 
 ---
